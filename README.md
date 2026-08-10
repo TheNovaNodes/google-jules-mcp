@@ -3,9 +3,9 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 
 This repository provides a fully functional **Model Context Protocol (MCP)** server for interacting with the **Google Jules AI Agent**. 
-Google Jules is a cloud-based autonomous agent capable of resolving GitHub issues and PRs by analyzing the codebase, searching the web, and producing PRs automatically.
+Google Jules is a cloud-based autonomous agent capable of resolving GitHub issues and Pull Requests by analyzing the codebase, searching the web, and producing Pull Requests automatically.
 
-This MCP wrapper exposes Jules's capabilities as tools to other local AI agents (such as Antigravity), allowing them to natively delegate complex tasks to the cloud agent.
+As a core component of the **Antigravity Agent Ecosystem**, this MCP wrapper exposes Jules's capabilities as tools to other local AI agents (such as Antigravity), allowing them to natively delegate complex tasks to the cloud agent. This enables seamless integration and collaboration between local and cloud-based agents within the ecosystem.
 
 ## Features
 - **MCP Tool: `list_jules_sources`**: Retrieve a list of authorized repositories that Jules can interact with.
