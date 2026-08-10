@@ -1,3 +1,4 @@
+README.md
 pyproject.toml
 src/__init__.py
 src/client.py
@@ -8,3 +9,5 @@ src/google_jules_mcp.egg-info/dependency_links.txt
 src/google_jules_mcp.egg-info/entry_points.txt
 src/google_jules_mcp.egg-info/requires.txt
 src/google_jules_mcp.egg-info/top_level.txt
+tests/test_client.py
+tests/test_server.py
