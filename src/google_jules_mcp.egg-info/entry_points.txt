@@ -1,0 +1,2 @@
+[console_scripts]
+google-jules-mcp = src.server:main
