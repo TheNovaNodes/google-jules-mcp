@@ -405,7 +405,7 @@ async def handle_call_tool(
             text=f"❌ Error executing tool `{name}`: {str(e)}"
         )]
 
-async def main():
+async def async_main():
     logger.info("🚀 Starting Google Jules SOTA MCP Server via stdio...")
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
@@ -421,5 +421,8 @@ async def main():
             ),
         )
 
+def main():
+    asyncio.run(async_main())
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
