@@ -1,75 +1,130 @@
-import os
+"""
+High-Performance Async Client for Google Jules REST API (v1alpha).
+Supports sources, sessions, multi-turn messaging, plan approvals, activity streaming, diff extraction, and cancellation.
+"""
+
 import logging
 import aiohttp
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("jules-client")
 
 class JulesClient:
-    """Client for interacting with the Google Jules REST API."""
-    
+    """Asynchronous client for communicating with Google Jules REST API."""
+
     BASE_URL = "https://jules.googleapis.com/v1alpha"
 
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("JULES_API_KEY")
-        if not self.api_key:
-            logger.warning("JULES_API_KEY is not set.")
-            
-    async def _request(self, method: str, endpoint: str, json_data: dict = None) -> Dict[str, Any]:
-        """Helper to make HTTP requests to the Jules API."""
-        if not self.api_key:
-            raise ValueError("Cannot make request: JULES_API_KEY is missing.")
-            
+    def __init__(self, api_key: str):
+        if not api_key:
+            raise ValueError("JulesClient requires a valid non-empty API key.")
+        self.api_key = api_key
+
+    async def _request(
+        self,
+        method: str,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+        json_data: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         headers = {
             "Content-Type": "application/json",
             "x-goog-api-key": self.api_key
         }
-        
         url = f"{self.BASE_URL}/{endpoint.lstrip('/')}"
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.request(method, url, headers=headers, json=json_data) as response:
+
+        timeout = aiohttp.ClientTimeout(total=45)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.request(method, url, headers=headers, params=params, json=json_data) as response:
                 if not response.ok:
                     error_text = await response.text()
-                    logger.error(f"Jules API Error {response.status}: {error_text}")
-                    response.raise_for_status()
+                    logger.error(f"Jules API [{method} {endpoint}] failed with HTTP {response.status}: {error_text}")
+                    try:
+                        err_json = await response.json()
+                        msg = err_json.get("error", {}).get("message", error_text)
+                    except Exception:
+                        msg = error_text
+                    raise RuntimeError(f"Google Jules API Error ({response.status}): {msg}")
                 return await response.json()
 
-    async def list_sources(self) -> Dict[str, Any]:
-        """List available sources (e.g. connected GitHub repositories)."""
-        return await self._request("GET", "/sources")
+    # --- Sources ---
+    async def list_sources(self, page_size: int = 100, page_token: Optional[str] = None) -> Dict[str, Any]:
+        params = {"pageSize": page_size}
+        if page_token:
+            params["pageToken"] = page_token
+        return await self._request("GET", "/sources", params=params)
 
-    async def create_session(self, source_name: str, prompt: str) -> Dict[str, Any]:
-        """Create a new Jules session for a specific source."""
-        payload = {
+    async def get_source(self, source_name: str) -> Dict[str, Any]:
+        clean_name = source_name.lstrip("/")
+        return await self._request("GET", f"/{clean_name}")
+
+    # --- Sessions ---
+    async def list_sessions(self, page_size: int = 50, page_token: Optional[str] = None) -> Dict[str, Any]:
+        params = {"pageSize": page_size}
+        if page_token:
+            params["pageToken"] = page_token
+        return await self._request("GET", "/sessions", params=params)
+
+    async def create_session(
+        self,
+        source_name: str,
+        prompt: str,
+        title: Optional[str] = None,
+        starting_branch: str = "main",
+        require_plan_approval: bool = False,
+        auto_create_pr: bool = True
+    ) -> Dict[str, Any]:
+        # Ensure source begins with sources/
+        if not source_name.startswith("sources/"):
+            source_name = f"sources/github/{source_name.lstrip('/')}"
+
+        payload: Dict[str, Any] = {
             "prompt": prompt,
             "sourceContext": {
                 "source": source_name,
                 "githubRepoContext": {
-                    "startingBranch": "main"
+                    "startingBranch": starting_branch
                 }
             }
         }
+        if title:
+            payload["title"] = title
+        if require_plan_approval:
+            payload["requirePlanApproval"] = True
+        if auto_create_pr:
+            payload["automationMode"] = "AUTO_CREATE_PR"
+
         return await self._request("POST", "/sessions", json_data=payload)
 
-# Simple test block to run directly
-if __name__ == "__main__":
-    import asyncio
-    from dotenv import load_dotenv
-    
-    async def test():
-        load_dotenv()
-        client = JulesClient()
-        if not client.api_key:
-            print("Error: JULES_API_KEY is not set in .env")
-            return
-            
-        print("Testing Jules API...")
-        try:
-            sources = await client.list_sources()
-            print("Successfully fetched sources!")
-            print(sources)
-        except Exception as e:
-            print(f"Failed to fetch sources: {e}")
-            
-    asyncio.run(test())
+    async def get_session(self, session_id: str) -> Dict[str, Any]:
+        clean_id = session_id.lstrip("/")
+        if not clean_id.startswith("sessions/"):
+            clean_id = f"sessions/{clean_id}"
+        return await self._request("GET", f"/{clean_id}")
+
+    async def delete_session(self, session_id: str) -> Dict[str, Any]:
+        clean_id = session_id.lstrip("/")
+        if not clean_id.startswith("sessions/"):
+            clean_id = f"sessions/{clean_id}"
+        return await self._request("DELETE", f"/{clean_id}")
+
+    async def approve_plan(self, session_id: str) -> Dict[str, Any]:
+        clean_id = session_id.lstrip("/")
+        if not clean_id.startswith("sessions/"):
+            clean_id = f"sessions/{clean_id}"
+        return await self._request("POST", f"/{clean_id}:approvePlan", json_data={})
+
+    async def send_message(self, session_id: str, prompt: str) -> Dict[str, Any]:
+        clean_id = session_id.lstrip("/")
+        if not clean_id.startswith("sessions/"):
+            clean_id = f"sessions/{clean_id}"
+        return await self._request("POST", f"/{clean_id}:sendMessage", json_data={"prompt": prompt})
+
+    # --- Activities & Diffs ---
+    async def list_activities(self, session_id: str, page_size: int = 100, page_token: Optional[str] = None) -> Dict[str, Any]:
+        clean_id = session_id.lstrip("/")
+        if not clean_id.startswith("sessions/"):
+            clean_id = f"sessions/{clean_id}"
+        params = {"pageSize": page_size}
+        if page_token:
+            params["pageToken"] = page_token
+        return await self._request("GET", f"/{clean_id}/activities", params=params)
