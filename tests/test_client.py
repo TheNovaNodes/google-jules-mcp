@@ -45,9 +45,10 @@ def test_jules_client_init_with_key():
 
 @pytest.mark.asyncio
 async def test_jules_client_request_no_key():
-    client = JulesClient(api_key=None)
-    with pytest.raises(ValueError, match="Cannot make request: JULES_API_KEY is missing."):
-        await client._request("GET", "/test")
+    with patch.dict("os.environ", clear=True):
+        client = JulesClient(api_key=None)
+        with pytest.raises(ValueError, match="Cannot make request: JULES_API_KEY is missing."):
+            await client._request("GET", "/test")
 
 
 @pytest.mark.asyncio
