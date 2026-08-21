@@ -1,33 +1,101 @@
+---
+module_type: mcp-server
+status: active
+protocol: stdio
+primary_capability: Task delegation to Google Jules
+requires: JULES_API_KEY
+works_with: GitHub repositories, Google Jules
+last_verified: 2026-08-21
+---
+
 # Google Jules MCP Server
+*Delegate complex, long-running coding tasks from local agents to the cloud-based Google Jules AI agent.*
 
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+## Status and last verified date
+Status: Active
+Last verified: 2026-08-21
 
-This repository provides a fully functional **Model Context Protocol (MCP)** server for interacting with the **Google Jules AI Agent**. 
-Google Jules is a cloud-based autonomous agent capable of resolving GitHub issues and Pull Requests by analyzing the codebase, searching the web, and producing Pull Requests automatically.
+## What it does / does not do
+**What it does:**
+- Wraps the Google Jules v1alpha REST API into an MCP (Model Context Protocol) server.
+- Allows listing connected GitHub repositories (sources).
+- Allows delegating coding/refactoring tasks to Jules by creating new remote sessions.
 
-As a core component of the **Antigravity Agent Ecosystem**, this MCP wrapper exposes Jules's capabilities as tools to other local AI agents (such as Antigravity), allowing them to natively delegate complex tasks to the cloud agent. This enables seamless integration and collaboration between local and cloud-based agents within the ecosystem.
+**What it does not do:**
+- Does not run Jules locally (Jules runs on Google Cloud VMs).
+- Does not automatically approve or merge Jules's Pull Requests.
+- Does not monitor the real-time stream of the session (it creates the session and returns).
 
-## Features
-- **MCP Tool: `list_jules_sources`**: Retrieve a list of authorized repositories that Jules can interact with.
-- **MCP Tool: `delegate_task_to_jules`**: Delegate an architectural or coding task to Jules directly. The local agent will receive a session URL to track Jules's progress.
+## Why an agent would use it
+Local agents (like Antigravity) use this MCP server to offload significant refactoring, large-scale testing, or complex feature implementation across multiple files. This prevents the local chat and context window from blocking, letting Jules handle heavy lifting in the cloud and submit a Pull Request upon completion.
 
-## Prerequisites
-- Python 3.10+
-- A valid Google Jules API key (`JULES_API_KEY`) configured in your environment or MCP config.
+## Architecture and dependencies
+- **Architecture**: A FastMCP-based server communicating via standard input/output (stdio). It uses lazy client initialization to load environment variables at request time, ensuring fresh instances and proper resource cleanup.
+- **Dependencies**: 
+  - `mcp` (>=1.2.0, <2.0.0)
+  - `aiohttp` (>=3.0.0)
+  - `pydantic` (>=2.0.0)
+  - `python-dotenv` (>=1.0.0)
+  - `tenacity` (>=8.0.0)
 
-## Installation
+## Compatibility
+- Requires Python 3.10 or higher.
+- Implements MCP (Model Context Protocol) stdio transport.
+
+## Quick start and health check
+**Quick Start:**
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
+cp .env.example .env # Add your JULES_API_KEY
+python src/main.py
 ```
+**Health Check:** Call the `check_jules_status` MCP tool.
 
-## Running the Server
+## Configuration and environment variables
+- `JULES_API_KEY`: The API key for accessing Google Jules. (No default, required).
+
+## Complete MCP tool/API table with side effects
+| Tool | Description | Side Effects |
+|------|-------------|--------------|
+| `list_jules_sources` | List connected GitHub repositories | None (Read-only) |
+| `delegate_task_to_jules` | Start a remote session on a source | **Creates remote session** |
+| `check_jules_status` | Get status of a Jules session | None (Read-only) |
+
+## Security model and trust boundaries
+- **Authentication**: Requires a valid `JULES_API_KEY`.
+- **Trust Boundaries**: The server executes locally but interacts directly with Google APIs. It should run in a trusted environment to prevent key leakage.
+
+## Tests and exact commands
 ```bash
-export JULES_API_KEY="your-api-key"
-google-jules-mcp
+pytest tests/
 ```
 
-## Architecture
-- `src/server.py`: The MCP standard server implementation (stdio).
-- `src/client.py`: The async REST client for the Google Jules `v1alpha` API.
+## Operations, logs, backup/restore, rollback
+- **Logs**: Handled via standard MCP logging or standard error stream.
+- **Backup**: Stateless. Back up the API key elsewhere.
+
+## Generic MCP-client example
+```json
+{
+  "mcpServers": {
+    "google-jules": {
+      "command": "python",
+      "args": ["-m", "google_jules_mcp.server"],
+      "env": {
+        "JULES_API_KEY": "YOUR_KEY"
+      }
+    }
+  }
+}
+```
+
+## Limitations and roadmap
+- Only creates sessions; streaming logs is unsupported.
+
+## Related TheNovaNodes modules
+- antigravity-telegram-agent
+
+## License
+MIT
