@@ -172,9 +172,11 @@ class JulesClient:
     ) -> dict[str, Any]:
         """Process an HTTP response, raising on error."""
         if not response.ok:
-            error_text = await response.text()
+            # SECURITY: Log only the HTTP status and reason, not the full response body.
+            # This prevents leaking potential sensitive data, internal paths, or
+            # stack traces from the remote API into our local logs.
             logger.error(
-                f"Jules API Error {response.status}: {error_text}"
+                f"Jules API Error {response.status}: {response.reason}"
             )
             response.raise_for_status()
         return await response.json()
