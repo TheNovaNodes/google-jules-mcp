@@ -19,7 +19,7 @@ from aiohttp import ClientError, ClientResponseError
 try:
     from tenacity import (
         retry,
-        retry_if_exception_type,
+        retry_if_exception,
         stop_after_attempt,
         wait_exponential_jitter,
     )
@@ -147,7 +147,7 @@ class JulesClient:
                 initial=DEFAULT_RETRY_WAIT_MIN,
                 max=DEFAULT_RETRY_WAIT_MAX,
             ),
-            retry=retry_if_exception_type((ClientResponseError, ClientError)),
+            retry=retry_if_exception(_is_retryable_error),
             reraise=True,
         )
         async def _request_with_retry(
