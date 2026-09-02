@@ -5,6 +5,7 @@ Uses FastMCP (high-level MCP API) with proper lifecycle management:
   - Lazy client initialization (env vars read at first request, not import time)
   - Session cleanup on shutdown via lifespan hooks
 """
+
 import logging
 from contextlib import asynccontextmanager
 
@@ -63,7 +64,9 @@ async def list_jules_sources() -> str:
     """
     client = get_jules_client()
     if not client.api_key:
-        return "Error: JULES_API_KEY environment variable is not set for the MCP server."
+        return (
+            "Error: JULES_API_KEY environment variable is not set for the MCP server."
+        )
 
     try:
         sources = await client.list_sources()
@@ -92,7 +95,9 @@ async def delegate_task_to_jules(source_name: str, prompt: str) -> str:
 
     client = get_jules_client()
     if not client.api_key:
-        return "Error: JULES_API_KEY environment variable is not set for the MCP server."
+        return (
+            "Error: JULES_API_KEY environment variable is not set for the MCP server."
+        )
 
     try:
         session_result = await client.create_session(source_name, prompt)
@@ -100,6 +105,30 @@ async def delegate_task_to_jules(source_name: str, prompt: str) -> str:
     except Exception as e:
         logger.exception("delegate_task_to_jules failed.")
         return f"Error executing delegate_task_to_jules: {e}"
+
+
+@mcp.tool()
+async def check_jules_status(session_id: str) -> str:
+    """Get the current status of a remote Jules session.
+
+    Args:
+        session_id: The ID of the session returned by delegate_task_to_jules.
+    """
+    if not session_id:
+        return "Error: Missing session_id."
+
+    client = get_jules_client()
+    if not client.api_key:
+        return (
+            "Error: JULES_API_KEY environment variable is not set for the MCP server."
+        )
+
+    try:
+        session_info = await client.get_session(session_id)
+        return f"Session status:\n\n{session_info}"
+    except Exception as e:
+        logger.exception("check_jules_status failed.")
+        return f"Error executing check_jules_status: {e}"
 
 
 def main():

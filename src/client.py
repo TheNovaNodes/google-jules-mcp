@@ -6,6 +6,7 @@ Resilient HTTP client with:
   - Configurable timeouts
   - Retry with exponential backoff for transient failures (429, 5xx)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,12 +18,9 @@ import aiohttp
 from aiohttp import ClientError, ClientResponseError
 
 try:
-    from tenacity import (
-        retry,
-        retry_if_exception_type,
-        stop_after_attempt,
-        wait_exponential_jitter,
-    )
+    from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
+                          wait_exponential_jitter)
+
     _HAS_TENACITY = True
 except ImportError:  # pragma: no cover
     _HAS_TENACITY = False
@@ -141,6 +139,7 @@ class JulesClient:
     # -- Retry wrapper --------------------------------------------------
 
     if _HAS_TENACITY:
+
         @retry(
             stop=stop_after_attempt(DEFAULT_RETRY_ATTEMPTS),
             wait=wait_exponential_jitter(
@@ -173,9 +172,7 @@ class JulesClient:
         """Process an HTTP response, raising on error."""
         if not response.ok:
             error_text = await response.text()
-            logger.error(
-                f"Jules API Error {response.status}: {error_text}"
-            )
+            logger.error(f"Jules API Error {response.status}: {error_text}")
             response.raise_for_status()
         return await response.json()
 
@@ -208,6 +205,14 @@ class JulesClient:
             },
         }
         return await self._request("POST", "/sessions", json_data=payload)
+
+    async def get_session(self, session_id: str) -> dict[str, Any]:
+        """Get the status of an existing Jules session.
+
+        Args:
+            session_id: The ID of the session to check.
+        """
+        return await self._request("GET", f"/sessions/{session_id}")
 
     async def close(self) -> None:
         """Clean up the underlying ``ClientSession``.

@@ -7,6 +7,7 @@ Covers:
   - Error handling (no key, HTTP errors)
   - Retry classification logic (unit-level)
 """
+
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -47,7 +48,9 @@ def test_jules_client_init_with_key():
 async def test_jules_client_request_no_key():
     with patch.dict("os.environ", clear=True):
         client = JulesClient(api_key=None)
-        with pytest.raises(ValueError, match="Cannot make request: JULES_API_KEY is missing."):
+        with pytest.raises(
+            ValueError, match="Cannot make request: JULES_API_KEY is missing."
+        ):
             await client._request("GET", "/test")
 
 
@@ -62,7 +65,9 @@ async def test_jules_client_list_sources():
 
     mock_session = _make_async_mock_session(mock_response)
 
-    with patch.object(client, "_get_session", new_callable=AsyncMock, return_value=mock_session):
+    with patch.object(
+        client, "_get_session", new_callable=AsyncMock, return_value=mock_session
+    ):
         result = await client.list_sources()
         assert result == {"sources": ["source1", "source2"]}
 
@@ -87,7 +92,9 @@ async def test_jules_client_create_session():
 
     mock_session = _make_async_mock_session(mock_response)
 
-    with patch.object(client, "_get_session", new_callable=AsyncMock, return_value=mock_session):
+    with patch.object(
+        client, "_get_session", new_callable=AsyncMock, return_value=mock_session
+    ):
         result = await client.create_session("source_test", "test prompt")
         assert result == {"sessionId": "123"}
 
@@ -101,7 +108,10 @@ async def test_jules_client_create_session():
         }
         assert kwargs["json"]["prompt"] == "test prompt"
         assert kwargs["json"]["sourceContext"]["source"] == "source_test"
-        assert kwargs["json"]["sourceContext"]["githubRepoContext"]["startingBranch"] == "main"
+        assert (
+            kwargs["json"]["sourceContext"]["githubRepoContext"]["startingBranch"]
+            == "main"
+        )
 
 
 @pytest.mark.asyncio
@@ -115,11 +125,16 @@ async def test_jules_client_create_session_custom_branch():
 
     mock_session = _make_async_mock_session(mock_response)
 
-    with patch.object(client, "_get_session", new_callable=AsyncMock, return_value=mock_session):
+    with patch.object(
+        client, "_get_session", new_callable=AsyncMock, return_value=mock_session
+    ):
         await client.create_session("src", "prompt", starting_branch="dev")
 
         _, kwargs = mock_session.request.call_args
-        assert kwargs["json"]["sourceContext"]["githubRepoContext"]["startingBranch"] == "dev"
+        assert (
+            kwargs["json"]["sourceContext"]["githubRepoContext"]["startingBranch"]
+            == "dev"
+        )
 
 
 @pytest.mark.asyncio
@@ -144,8 +159,12 @@ async def test_jules_client_request_failure():
 
     mock_session = _make_async_mock_session(mock_response)
 
-    with patch.object(client, "_get_session", new_callable=AsyncMock, return_value=mock_session), \
-         pytest.raises(aiohttp.ClientResponseError):
+    with (
+        patch.object(
+            client, "_get_session", new_callable=AsyncMock, return_value=mock_session
+        ),
+        pytest.raises(aiohttp.ClientResponseError),
+    ):
         await client.list_sources()
 
 
@@ -170,18 +189,18 @@ async def test_session_is_reused_across_requests():
         await client.list_sources()
         await client.list_sources()
 
-    assert len(constructed_sessions) == 1, (
-        f"Expected 1 ClientSession construction, got {len(constructed_sessions)}"
-    )
+    assert (
+        len(constructed_sessions) == 1
+    ), f"Expected 1 ClientSession construction, got {len(constructed_sessions)}"
 
 
 @pytest.mark.asyncio
 async def test_session_created_lazily():
     """Test that session is not created at client init time (lazy init)."""
     client = JulesClient(api_key="test_key")
-    assert client._session is None, (
-        "Session should not be created at init time (lazy init), not created eagerly"
-    )
+    assert (
+        client._session is None
+    ), "Session should not be created at init time (lazy init), not created eagerly"
 
 
 @pytest.mark.asyncio
@@ -252,7 +271,10 @@ def test_is_retryable_error():
 
     # 500 - retryable
     err_500 = aiohttp.ClientResponseError(
-        request_info=MagicMock(), history=(), status=500, message="Internal Server Error"
+        request_info=MagicMock(),
+        history=(),
+        status=500,
+        message="Internal Server Error",
     )
     assert _is_retryable_error(err_500) is True
 
@@ -277,3 +299,29 @@ def test_is_retryable_error():
     # Connection error - retryable (ClientError)
     conn_err = aiohttp.ClientConnectionError("connection refused")
     assert _is_retryable_error(conn_err) is True
+
+
+@pytest.mark.asyncio
+async def test_get_session_success():
+    client = JulesClient(api_key="test_key")
+
+    mock_response = MagicMock()
+    mock_response.ok = True
+    mock_response.json = AsyncMock(return_value={"state": "RUNNING"})
+
+    mock_session = _make_async_mock_session(mock_response)
+
+    with patch.object(
+        client, "_get_session", new_callable=AsyncMock, return_value=mock_session
+    ):
+        result = await client.get_session("session_123")
+        assert result == {"state": "RUNNING"}
+
+        mock_session.request.assert_called_once()
+        args, kwargs = mock_session.request.call_args
+        assert args[0] == "GET"
+        assert args[1] == "https://jules.googleapis.com/v1alpha/sessions/session_123"
+        assert kwargs["headers"] == {
+            "Content-Type": "application/json",
+            "x-goog-api-key": "test_key",
+        }
