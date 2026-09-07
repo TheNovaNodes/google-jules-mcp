@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "google-jules-mcp"
 version = "0.1.0"
@@ -5,6 +9,7 @@ description = "MCP Server for Google Jules AI Coding Agent"
 authors = [
     { name = "Antigravity", email = "antigravity@labdoctorm.com" }
 ]
+license = { text = "MIT" }
 requires-python = ">=3.10"
 dependencies = [
     "mcp>=1.2.0,<2.0.0",
@@ -18,11 +23,10 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
-    "flake8>=7.0",
-    "black>=24.0",
-    "isort>=5.0",
-    "mypy>=1.0",
 ]
 
 [project.scripts]
 google-jules-mcp = "src.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
