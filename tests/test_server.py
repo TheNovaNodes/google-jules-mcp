@@ -14,8 +14,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.server import (check_jules_status, delegate_task_to_jules,
-                        get_jules_client, list_jules_sources, mcp)
+from src.server import (
+    check_jules_status,
+    delegate_task_to_jules,
+    get_jules_client,
+    list_jules_sources,
+    mcp,
+)
 
 
 @pytest.mark.asyncio
@@ -123,11 +128,7 @@ async def test_delegate_task_error():
     mock_client.api_key = "test_key"
     mock_client.create_session = AsyncMock(side_effect=Exception("Session API error"))
 
-    with (
-        patch("src/server.get_jules_client", return_value=mock_client)
-        if False
-        else patch("src.server.get_jules_client", return_value=mock_client)
-    ):
+    with patch("src.server.get_jules_client", return_value=mock_client):
         result = await delegate_task_to_jules("source_name", "do something")
 
     assert "Error executing delegate_task_to_jules: Session API error" in result

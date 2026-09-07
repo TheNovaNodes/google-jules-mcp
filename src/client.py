@@ -18,8 +18,12 @@ import aiohttp
 from aiohttp import ClientError, ClientResponseError
 
 try:
-    from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
-                          wait_exponential_jitter)
+    from tenacity import (
+        retry,
+        retry_if_exception_type,
+        stop_after_attempt,
+        wait_exponential_jitter,
+    )
 
     _HAS_TENACITY = True
 except ImportError:  # pragma: no cover
