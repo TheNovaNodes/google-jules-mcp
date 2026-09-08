@@ -1,9 +1,25 @@
-.venv/
-__pycache__/
-*.pyc
-*.egg-info/
+# Binaries
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Environment & Secrets
 .env
-.venv/
-*.egg-info/
-__pycache__/
-.pytest_cache/
+.env.*
+!.env.example
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Go vendor (if any)
+vendor/
