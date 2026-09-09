@@ -3,6 +3,7 @@ package jules
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -595,5 +596,109 @@ func TestDoRequest_ReadBodyError(t *testing.T) {
 	_, err := client.ListSources(context.Background())
 	if err == nil {
 		t.Errorf("expected read error, got nil")
+	}
+}
+
+func TestGetLatestPatch_EmptySessionID(t *testing.T) {
+	client := NewClient("key", WithDisableRetry(true))
+	_, err := client.GetLatestPatch(context.Background(), "")
+	if err == nil || !strings.Contains(err.Error(), "session_id cannot be empty") {
+		t.Fatalf("expected empty session_id error, got %v", err)
+	}
+}
+
+func TestGetLatestPatch_SuccessAndPagination(t *testing.T) {
+	reqCount := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqCount++
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.URL.Query().Get("pageToken") == "" {
+			// Page 1: activity with no patch, returns nextPageToken
+			_, _ = w.Write([]byte(`{
+				"activities": [
+					{
+						"name": "act-1",
+						"originator": "agent",
+						"progressUpdated": {"title": "step 1"}
+					}
+				],
+				"nextPageToken": "page-2"
+			}`))
+			return
+		}
+
+		if r.URL.Query().Get("pageToken") == "page-2" {
+			// Page 2: activity with patch
+			_, _ = w.Write([]byte(`{
+				"activities": [
+					{
+						"name": "act-2",
+						"originator": "agent",
+						"artifacts": [
+							{
+								"changeSet": {
+									"gitPatch": {
+										"baseCommitId": "c0ffee",
+										"unidiffPatch": "diff --git a/a.txt b/a.txt\n+patched\n"
+									}
+								}
+							}
+						]
+					}
+				]
+			}`))
+			return
+		}
+
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer ts.Close()
+
+	client := NewClient("key", WithBaseURL(ts.URL), WithDisableRetry(true))
+	patch, err := client.GetLatestPatch(context.Background(), "sess-test")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if patch.BaseCommitID != "c0ffee" {
+		t.Errorf("expected base commit c0ffee, got %s", patch.BaseCommitID)
+	}
+	if patch.UnidiffPatch != "diff --git a/a.txt b/a.txt\n+patched\n" {
+		t.Errorf("unexpected unidiff patch: %s", patch.UnidiffPatch)
+	}
+	if reqCount != 2 {
+		t.Errorf("expected 2 requests for pagination, got %d", reqCount)
+	}
+}
+
+func TestGetLatestPatch_NotFound(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"activities": [
+				{"name": "act-1", "originator": "system"}
+			]
+		}`))
+	}))
+	defer ts.Close()
+
+	client := NewClient("key", WithBaseURL(ts.URL), WithDisableRetry(true))
+	_, err := client.GetLatestPatch(context.Background(), "sess-empty")
+	if !errors.Is(err, ErrNoPatchFound) {
+		t.Fatalf("expected ErrNoPatchFound, got %v", err)
+	}
+}
+
+func TestGetLatestPatch_APIError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	client := NewClient("key", WithBaseURL(ts.URL), WithDisableRetry(true))
+	_, err := client.GetLatestPatch(context.Background(), "sess-err")
+	if err == nil || !strings.Contains(err.Error(), "failed to list activities for patch extraction") {
+		t.Fatalf("expected list activities error, got %v", err)
 	}
 }

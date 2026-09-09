@@ -95,7 +95,7 @@ func FormatSessionStatus(session *jules.Session) string {
 }
 
 // FormatActivities formats activity events with patch truncation and total byte limit (R3).
-func FormatActivities(sessionID string, activities []jules.Activity) string {
+func FormatActivities(sessionID string, activities []jules.Activity, nextPageToken ...string) string {
 	if len(activities) == 0 {
 		return fmt.Sprintf("No activities recorded yet for session `%s`.", sessionID)
 	}
@@ -142,6 +142,27 @@ func FormatActivities(sessionID string, activities []jules.Activity) string {
 		sb.WriteString(entry.String())
 	}
 
+	if len(nextPageToken) > 0 && nextPageToken[0] != "" {
+		sb.WriteString(fmt.Sprintf("\n- **Next Page Token:** `%s` *(use `page_token` to fetch next page)*\n", nextPageToken[0]))
+	}
+
+	return sb.String()
+}
+
+// FormatPatch formats a git unidiff patch for MCP output.
+func FormatPatch(sessionID string, patch *jules.GitPatch) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("### 📦 Git Patch for Session `%s`\n\n", sessionID))
+	if patch.BaseCommitID != "" {
+		sb.WriteString(fmt.Sprintf("- **Base Commit:** `%s`\n", patch.BaseCommitID))
+	}
+	sb.WriteString(fmt.Sprintf("- **Patch Size:** %d bytes\n\n", len(patch.UnidiffPatch)))
+	sb.WriteString("```diff\n")
+	sb.WriteString(patch.UnidiffPatch)
+	if !strings.HasSuffix(patch.UnidiffPatch, "\n") {
+		sb.WriteString("\n")
+	}
+	sb.WriteString("```\n")
 	return sb.String()
 }
 

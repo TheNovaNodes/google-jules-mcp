@@ -27,6 +27,7 @@ func TestToolRegistration(t *testing.T) {
 		"list_jules_activities",
 		"send_jules_message",
 		"approve_jules_plan",
+		"get_jules_patch",
 	}
 
 	for _, toolName := range tools {
@@ -76,6 +77,12 @@ func TestHandlersMissingAPIKey(t *testing.T) {
 
 	// 6. approve_jules_plan
 	res, _ = srv.handleApproveJulesPlan(ctx, mcp.CallToolRequest{})
+	if !res.IsError {
+		t.Errorf("expected error when API key missing")
+	}
+
+	// 7. get_jules_patch
+	res, _ = srv.handleGetJulesPatch(ctx, mcp.CallToolRequest{})
 	if !res.IsError {
 		t.Errorf("expected error when API key missing")
 	}
@@ -139,7 +146,17 @@ func TestServerHappyPaths(t *testing.T) {
 					{
 						"name": "act-1",
 						"originator": "agent",
-						"progressUpdated": { "title": "Working" }
+						"progressUpdated": { "title": "Working" },
+						"artifacts": [
+							{
+								"changeSet": {
+									"gitPatch": {
+										"baseCommitId": "base-abc",
+										"unidiffPatch": "diff --git a/file.go b/file.go\n+package main\n"
+									}
+								}
+							}
+						]
 					}
 				]
 			}`))
@@ -223,6 +240,21 @@ func TestServerHappyPaths(t *testing.T) {
 	res, err = srv.handleApproveJulesPlan(ctx, apprReq)
 	if err != nil || res.IsError {
 		t.Fatalf("approve_jules_plan failed: %v", err)
+	}
+
+	// 7. get_jules_patch
+	patchReq := mcp.CallToolRequest{}
+	patchReq.Params.Arguments = map[string]any{"session_id": "sess-123"}
+	res, err = srv.handleGetJulesPatch(ctx, patchReq)
+	if err != nil || res.IsError {
+		t.Fatalf("get_jules_patch failed: %v", err)
+	}
+	content = res.Content[0].(mcp.TextContent).Text
+	if !strings.Contains(content, "Git Patch for Session `sess-123`") {
+		t.Errorf("missing header in patch output: %s", content)
+	}
+	if !strings.Contains(content, "+package main") {
+		t.Errorf("missing patch diff content: %s", content)
 	}
 }
 
@@ -404,5 +436,26 @@ func TestHandlers_APIErrorPaths(t *testing.T) {
 	}
 	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Error approving plan") {
 		t.Errorf("expected API error for approve")
+	}
+
+	// get_jules_patch missing id
+	patchReq := mcp.CallToolRequest{}
+	patchReq.Params.Arguments = map[string]any{"session_id": ""}
+	res, err = srv.handleGetJulesPatch(ctx, patchReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Missing session_id") {
+		t.Errorf("expected missing id error for get_jules_patch")
+	}
+
+	// get_jules_patch api failure
+	patchReq.Params.Arguments = map[string]any{"session_id": "sess-1"}
+	res, err = srv.handleGetJulesPatch(ctx, patchReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Error retrieving git patch") {
+		t.Errorf("expected API error for get_jules_patch")
 	}
 }
