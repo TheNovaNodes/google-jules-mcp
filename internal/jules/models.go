@@ -29,12 +29,12 @@ type ListSourcesResponse struct {
 
 // Session represents a Google Jules remote execution session.
 type Session struct {
-	Name          string         `json:"name"`                    // e.g. "sessions/12345"
-	ID            string         `json:"id,omitempty"`            // extracted or raw id
+	Name          string         `json:"name"`         // e.g. "sessions/12345"
+	ID            string         `json:"id,omitempty"` // extracted or raw id
 	Title         string         `json:"title,omitempty"`
 	Prompt        string         `json:"prompt,omitempty"`
-	State         string         `json:"state"`                   // QUEUED, IN_PROGRESS, AWAITING_USER_FEEDBACK, COMPLETED, FAILED
-	URL           string         `json:"url,omitempty"`           // Web UI link: https://jules.google.com/session/{id}
+	State         string         `json:"state"`         // QUEUED, IN_PROGRESS, AWAITING_USER_FEEDBACK, COMPLETED, FAILED
+	URL           string         `json:"url,omitempty"` // Web UI link: https://jules.google.com/session/{id}
 	CreateTime    *time.Time     `json:"createTime,omitempty"`
 	UpdateTime    *time.Time     `json:"updateTime,omitempty"`
 	SourceContext *SourceContext `json:"sourceContext,omitempty"`
