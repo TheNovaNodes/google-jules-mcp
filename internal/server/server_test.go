@@ -225,3 +225,184 @@ func TestServerHappyPaths(t *testing.T) {
 		t.Fatalf("approve_jules_plan failed: %v", err)
 	}
 }
+
+func TestServerGetters(t *testing.T) {
+	client := jules.NewClient("test-key")
+	srv := NewServer(client, nil)
+
+	if srv.MCPServer() == nil {
+		t.Errorf("expected MCPServer to be returned")
+	}
+}
+
+func TestHandleGetJulesSession(t *testing.T) {
+	// Alias of check_jules_status
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/sessions/sess-123" {
+			_, err := w.Write([]byte(`{
+				"name": "sessions/sess-123",
+				"state": "COMPLETED"
+			}`))
+			if err != nil {
+				t.Logf("err: %v", err)
+			}
+		} else {
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	client := jules.NewClient("test-key", jules.WithBaseURL(ts.URL), jules.WithDisableRetry(true))
+	srv := NewServer(client, nil)
+	ctx := context.Background()
+
+	req := mcp.CallToolRequest{}
+	req.Params.Arguments = map[string]any{"session_id": "sess-123"}
+
+	res, err := srv.handleGetJulesSession(ctx, req)
+	if err != nil || res.IsError {
+		t.Fatalf("handleGetJulesSession failed: %v", err)
+	}
+
+	content := res.Content[0].(mcp.TextContent).Text
+	if !strings.Contains(content, "COMPLETED") {
+		t.Errorf("missing state in session response")
+	}
+}
+
+func TestHandlers_APIErrorPaths(t *testing.T) {
+	// A server that consistently returns 500
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	client := jules.NewClient("test-key", jules.WithBaseURL(ts.URL), jules.WithDisableRetry(true))
+	srv := NewServer(client, slog.Default())
+	ctx := context.Background()
+
+	// list_jules_sources
+	res, err := srv.handleListJulesSources(ctx, mcp.CallToolRequest{})
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Error listing sources") {
+		t.Errorf("expected error for list sources, got %v", res)
+	}
+
+	// delegate_task_to_jules missing prompt
+	delReq := mcp.CallToolRequest{}
+	delReq.Params.Arguments = map[string]any{"source_name": "src", "prompt": ""}
+	res, err = srv.handleDelegateTaskToJules(ctx, delReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Missing source_name or prompt") {
+		t.Errorf("expected missing arguments error")
+	}
+
+	// delegate_task_to_jules api failure
+	delReq.Params.Arguments = map[string]any{"source_name": "src", "prompt": "prompt"}
+	res, err = srv.handleDelegateTaskToJules(ctx, delReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Error delegating task") {
+		t.Errorf("expected API error for delegation, got %v", res)
+	}
+
+	// check_jules_status missing id
+	chkReq := mcp.CallToolRequest{}
+	chkReq.Params.Arguments = map[string]any{"session_id": ""}
+	res, err = srv.handleCheckJulesStatus(ctx, chkReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Missing session_id") {
+		t.Errorf("expected missing id error")
+	}
+
+	// check_jules_status api failure
+	chkReq.Params.Arguments = map[string]any{"session_id": "sess-1"}
+	res, err = srv.handleCheckJulesStatus(ctx, chkReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Error checking session status") {
+		t.Errorf("expected API error for status")
+	}
+
+	// list_jules_activities missing id
+	actReq := mcp.CallToolRequest{}
+	actReq.Params.Arguments = map[string]any{"session_id": ""}
+	res, err = srv.handleListJulesActivities(ctx, actReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Missing session_id") {
+		t.Errorf("expected missing id error")
+	}
+
+	// list_jules_activities api failure
+	actReq.Params.Arguments = map[string]any{"session_id": "sess-1"}
+	res, err = srv.handleListJulesActivities(ctx, actReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Error listing activities") {
+		t.Errorf("expected API error for activities")
+	}
+
+	// send_jules_message missing id
+	msgReq := mcp.CallToolRequest{}
+	msgReq.Params.Arguments = map[string]any{"session_id": "", "prompt": "test"}
+	res, err = srv.handleSendJulesMessage(ctx, msgReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Missing session_id") {
+		t.Errorf("expected missing id error")
+	}
+
+	// send_jules_message missing prompt
+	msgReq.Params.Arguments = map[string]any{"session_id": "sess-1", "prompt": ""}
+	res, err = srv.handleSendJulesMessage(ctx, msgReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Missing prompt") {
+		t.Errorf("expected missing prompt error")
+	}
+
+	// send_jules_message api failure
+	msgReq.Params.Arguments = map[string]any{"session_id": "sess-1", "prompt": "test"}
+	res, err = srv.handleSendJulesMessage(ctx, msgReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Error sending message") {
+		t.Errorf("expected API error for message")
+	}
+
+	// approve_jules_plan missing id
+	apprReq := mcp.CallToolRequest{}
+	apprReq.Params.Arguments = map[string]any{"session_id": ""}
+	res, err = srv.handleApproveJulesPlan(ctx, apprReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Missing session_id") {
+		t.Errorf("expected missing id error")
+	}
+
+	// approve_jules_plan api failure
+	apprReq.Params.Arguments = map[string]any{"session_id": "sess-1"}
+	res, err = srv.handleApproveJulesPlan(ctx, apprReq)
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Error approving plan") {
+		t.Errorf("expected API error for approve")
+	}
+}
