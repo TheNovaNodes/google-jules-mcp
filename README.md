@@ -11,6 +11,8 @@ last_verified: 2026-09-08
 # Google Jules MCP Server (Go)
 *Delegate complex, long-running coding tasks from local agents to the cloud-based Google Jules AI agent.*
 
+📚 **Documentation Suite:** [Architecture](ARCHITECTURE.md) • [Agent Directives](AGENTS.md) • [Contributing](CONTRIBUTING.md) • [Specification](docs/specs/jmc-tune-1-server-tuning.md) • [License](LICENSE)
+
 ## Status and last verified date
 Status: Active  
 Language: Go (Golang)  
