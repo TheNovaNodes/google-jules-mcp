@@ -372,3 +372,44 @@ func (c *Client) ApprovePlan(ctx context.Context, sessionID string) error {
 	_, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/sessions/%s:approvePlan", cleanID), req)
 	return err
 }
+
+// ErrNoPatchFound is returned when no git patch artifact is found in a session.
+var ErrNoPatchFound = errors.New("no git patch found in session activities")
+
+// GetLatestPatch traverses session activities to extract the latest git patch.
+func (c *Client) GetLatestPatch(ctx context.Context, sessionID string) (*GitPatch, error) {
+	cleanID := CleanSessionID(sessionID)
+	if cleanID == "" {
+		return nil, errors.New("session_id cannot be empty")
+	}
+
+	pageToken := ""
+	var latestPatch *GitPatch
+	maxPages := 10
+
+	for page := 0; page < maxPages; page++ {
+		resp, err := c.ListActivities(ctx, cleanID, 50, pageToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list activities for patch extraction: %w", err)
+		}
+
+		for _, act := range resp.Activities {
+			for _, art := range act.Artifacts {
+				if art.ChangeSet != nil && art.ChangeSet.GitPatch != nil && art.ChangeSet.GitPatch.UnidiffPatch != "" {
+					latestPatch = art.ChangeSet.GitPatch
+				}
+			}
+		}
+
+		if resp.NextPageToken == "" {
+			break
+		}
+		pageToken = resp.NextPageToken
+	}
+
+	if latestPatch == nil {
+		return nil, ErrNoPatchFound
+	}
+
+	return latestPatch, nil
+}

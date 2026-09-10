@@ -127,7 +127,7 @@ Every modification to this codebase must conform to the formal **JMC-TUNE-1** sp
    - If a repository's default branch is `master`, `ResolveStartingBranch` resolves and passes `"master"`.
    - If the repository is unknown or has no default branch metadata, the `startingBranch` parameter is omitted to let the Google API handle its internal defaults.
 2. **R2: Complete Lifecycle Surface:**
-   - Exactly 7 tools (`list_jules_sources`, `delegate_task_to_jules`, `check_jules_status`, `get_jules_session`, `list_jules_activities`, `send_jules_message`, `approve_jules_plan`) are maintained.
+   - Exactly 8 tools (`list_jules_sources`, `delegate_task_to_jules`, `check_jules_status`, `get_jules_session`, `list_jules_activities`, `send_jules_message`, `approve_jules_plan`, `get_jules_patch`) are maintained.
 3. **R3: Context Window Protection:**
    - Unstructured raw dictionary dumps are forbidden.
    - Patch previews are strictly capped at $\le 300$ characters.

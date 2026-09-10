@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -110,6 +111,15 @@ func (s *Server) registerTools() {
 			mcp.WithString("session_id", mcp.Required(), mcp.Description("The ID of the session")),
 		),
 		s.handleApproveJulesPlan,
+	)
+
+	// 8. get_jules_patch
+	s.mcpServer.AddTool(
+		mcp.NewTool("get_jules_patch",
+			mcp.WithDescription("Extract the latest Git unidiff patch produced by Jules for a session. Returns the full raw patch ready to inspect or apply."),
+			mcp.WithString("session_id", mcp.Required(), mcp.Description("The ID of the session")),
+		),
+		s.handleGetJulesPatch,
 	)
 }
 
@@ -222,7 +232,7 @@ func (s *Server) handleListJulesActivities(ctx context.Context, req mcp.CallTool
 	}
 
 	cleanID := jules.CleanSessionID(sessionID)
-	formatted := formatter.FormatActivities(cleanID, resp.Activities)
+	formatted := formatter.FormatActivities(cleanID, resp.Activities, resp.NextPageToken)
 	return mcp.NewToolResultText(formatted), nil
 }
 
@@ -270,4 +280,28 @@ func (s *Server) handleApproveJulesPlan(ctx context.Context, req mcp.CallToolReq
 	}
 
 	return mcp.NewToolResultText(fmt.Sprintf("Plan successfully approved for Jules session `%s`. Execution resumed.", jules.CleanSessionID(sessionID))), nil
+}
+
+func (s *Server) handleGetJulesPatch(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if s.julesClient.APIKey() == "" {
+		return mcp.NewToolResultError("Error: JULES_API_KEY environment variable is not set for the MCP server."), nil
+	}
+
+	sessionID := strings.TrimSpace(req.GetString("session_id", ""))
+	if sessionID == "" {
+		return mcp.NewToolResultError("Error: Missing session_id."), nil
+	}
+
+	patch, err := s.julesClient.GetLatestPatch(ctx, sessionID)
+	if err != nil {
+		if errors.Is(err, jules.ErrNoPatchFound) {
+			return mcp.NewToolResultText(fmt.Sprintf("No git patch found in session activities for `%s`.", jules.CleanSessionID(sessionID))), nil
+		}
+		s.logger.ErrorContext(ctx, "get_jules_patch failed", "session_id", sessionID, "error", err)
+		return mcp.NewToolResultError(fmt.Sprintf("Error retrieving git patch: %v", err)), nil
+	}
+
+	cleanID := jules.CleanSessionID(sessionID)
+	formatted := formatter.FormatPatch(cleanID, patch)
+	return mcp.NewToolResultText(formatted), nil
 }

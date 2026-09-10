@@ -65,6 +65,7 @@ make build
 | `list_jules_activities` | List execution activity events, progress steps, and code patch previews | None (Read-only) |
 | `send_jules_message` | Send an interactive message or instructions to a Jules session | **Sends message to remote session** |
 | `approve_jules_plan` | Approve a proposed execution plan for a session paused in plan approval | **Releases human gate; starts execution** |
+| `get_jules_patch` | Extract the latest Git unidiff patch produced by Jules for a session | None (Read-only) |
 
 ## Security model and trust boundaries
 - **Authentication**: All upstream requests require a valid `JULES_API_KEY` sent via the `X-Goog-Api-Key` header.
