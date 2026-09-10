@@ -80,6 +80,7 @@ func NewClient(apiKey string, opts ...Option) *Client {
 	if apiKey == "" {
 		apiKey = os.Getenv("JULES_API_KEY")
 	}
+	apiKey = strings.TrimSpace(apiKey)
 
 	disableRetry := os.Getenv("JULES_DISABLE_RETRY") == "1" || strings.ToLower(os.Getenv("JULES_DISABLE_RETRY")) == "true"
 
@@ -150,6 +151,13 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body an
 
 	reqURL := fmt.Sprintf("%s/%s", c.baseURL, strings.TrimPrefix(endpoint, "/"))
 
+	// Enforce context timeout if not set
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, DefaultTimeout)
+		defer cancel()
+	}
+
 	var bodyBytes []byte
 	if body != nil {
 		var err error
@@ -168,13 +176,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body an
 	var lastStatus int
 	var lastBody []byte
 
-	for attempt := 0; attempt < attempts; attempt++ {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
+	doSingleReq := func(attempt int) (bool, []byte, error) {
 		var reader io.Reader
 		if bodyBytes != nil {
 			reader = bytes.NewReader(bodyBytes)
@@ -182,7 +184,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body an
 
 		req, err := http.NewRequestWithContext(ctx, method, reqURL, reader)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+			return false, nil, fmt.Errorf("failed to create HTTP request: %w", err)
 		}
 
 		req.Header.Set("Content-Type", "application/json")
@@ -192,44 +194,58 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body an
 		if err != nil {
 			lastErr = err
 			c.logger.WarnContext(ctx, "HTTP request failed", "attempt", attempt+1, "url", reqURL, "error", err)
-			if attempt < attempts-1 {
-				time.Sleep(c.calculateBackoff(attempt))
-				continue
-			}
-			break
+			return true, nil, err
 		}
+		defer resp.Body.Close()
 
 		respBody, readErr := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-
 		if readErr != nil {
 			lastErr = readErr
-			if attempt < attempts-1 {
-				time.Sleep(c.calculateBackoff(attempt))
-				continue
-			}
-			break
+			return true, nil, readErr
 		}
 
 		lastStatus = resp.StatusCode
-		lastBody = respBody
+
+		// Redact API key from any response body before saving it
+		if c.apiKey != "" {
+			redactedBody := strings.ReplaceAll(string(respBody), c.apiKey, "[REDACTED_API_KEY]")
+			lastBody = []byte(redactedBody)
+		} else {
+			lastBody = respBody
+		}
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			return respBody, nil
+			return false, respBody, nil
 		}
 
 		// Check if error is retryable
 		if isRetryable(resp.StatusCode, nil) && attempt < attempts-1 {
 			c.logger.WarnContext(ctx, "Transient error from Jules API, retrying",
 				"status", resp.StatusCode, "attempt", attempt+1)
-			time.Sleep(c.calculateBackoff(attempt))
-			continue
+			return true, nil, nil
 		}
 
-		return nil, &APIError{
+		return false, nil, &APIError{
 			StatusCode: resp.StatusCode,
-			RawBody:    string(respBody),
+			RawBody:    string(lastBody),
 			Attempts:   attempt + 1,
+		}
+	}
+
+	for attempt := 0; attempt < attempts; attempt++ {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		shouldRetry, respBody, err := doSingleReq(attempt)
+		if !shouldRetry {
+			return respBody, err
+		}
+
+		if attempt < attempts-1 {
+			time.Sleep(c.calculateBackoff(attempt))
 		}
 	}
 
