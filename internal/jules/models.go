@@ -47,6 +47,9 @@ type SourceContext struct {
 }
 
 // GithubRepoContext defines GitHub-specific session parameters.
+// NOTE (Issue #11): startingBranch is resolved by Google Jules at session creation time,
+// not execution time. If you require an immutable checkout unaffected by concurrent commits,
+// pass an explicit commit SHA or tag as startingBranch.
 type GithubRepoContext struct {
 	StartingBranch string `json:"startingBranch,omitempty"`
 }

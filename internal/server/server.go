@@ -56,9 +56,9 @@ func (s *Server) registerTools() {
 	s.mcpServer.AddTool(
 		mcp.NewTool("delegate_task_to_jules",
 			mcp.WithDescription("Delegate a long-running, asynchronous task to Google Jules. Jules will clone the repository in a cloud VM and propose a Pull Request."),
-			mcp.WithString("source_name", mcp.Required(), mcp.Description("GitHub source name connected to Jules (e.g. 'sources/github/owner/repo')")),
+			mcp.WithString("source_name", mcp.Required(), mcp.Description("GitHub source name or repo (e.g. 'sources/github/owner/repo' or 'owner/repo')")),
 			mcp.WithString("prompt", mcp.Required(), mcp.Description("Detailed instructions for what Jules should do in the repository")),
-			mcp.WithString("starting_branch", mcp.Description("Git branch to start from. If omitted, auto-resolves to source default branch.")),
+			mcp.WithString("starting_branch", mcp.Description("Git branch, tag, or immutable commit SHA to start from. If omitted, auto-resolves to source default branch.")),
 			mcp.WithString("title", mcp.Description("Optional descriptive title for the session")),
 			mcp.WithBoolean("require_plan_approval", mcp.Description("If true, Jules pauses for plan approval before execution (default: false)")),
 		),
@@ -143,15 +143,17 @@ func (s *Server) handleDelegateTaskToJules(ctx context.Context, req mcp.CallTool
 		return mcp.NewToolResultError("Error: JULES_API_KEY environment variable is not set for the MCP server."), nil
 	}
 
-	sourceName := strings.TrimSpace(req.GetString("source_name", ""))
+	rawSource := strings.TrimSpace(req.GetString("source_name", ""))
 	prompt := strings.TrimSpace(req.GetString("prompt", ""))
 	startingBranch := strings.TrimSpace(req.GetString("starting_branch", ""))
 	title := strings.TrimSpace(req.GetString("title", ""))
 	requirePlanApproval := req.GetBool("require_plan_approval", false)
 
-	if sourceName == "" || prompt == "" {
+	if rawSource == "" || prompt == "" {
 		return mcp.NewToolResultError("Error: Missing source_name or prompt."), nil
 	}
+
+	sourceName := jules.NormalizeSourceName(rawSource)
 
 	// R1: Resolve starting branch
 	resolvedBranch, err := s.julesClient.ResolveStartingBranch(ctx, sourceName, startingBranch)
