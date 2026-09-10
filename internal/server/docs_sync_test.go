@@ -65,6 +65,7 @@ func TestReadmeMatchesToolRegistry(t *testing.T) {
 		"list_jules_activities",
 		"send_jules_message",
 		"approve_jules_plan",
+		"get_jules_patch",
 	}
 
 	sort.Strings(readmeTools)

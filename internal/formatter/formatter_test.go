@@ -403,3 +403,46 @@ func TestFormatActivities_BashOutput(t *testing.T) {
 		t.Errorf("expected bash output formatting, got %q", out)
 	}
 }
+
+func TestFormatActivities_WithNextPageToken(t *testing.T) {
+	act := jules.Activity{
+		Name:       "act-page",
+		Originator: "agent",
+		ProgressUpdated: &jules.ProgressUpdated{
+			Title: "In progress",
+		},
+	}
+	out := FormatActivities("sess-page", []jules.Activity{act}, "token-12345")
+	if !strings.Contains(out, "**Next Page Token:** `token-12345`") {
+		t.Errorf("expected next page token in output, got %q", out)
+	}
+}
+
+func TestFormatPatch(t *testing.T) {
+	patchWithBase := &jules.GitPatch{
+		BaseCommitID: "abc123def",
+		UnidiffPatch: "diff --git a/main.go b/main.go\n--- a/main.go\n+++ b/main.go\n@@ -1 +1 @@\n-old\n+new\n",
+	}
+
+	out := FormatPatch("sess-patch-1", patchWithBase)
+	if !strings.Contains(out, "Git Patch for Session `sess-patch-1`") {
+		t.Errorf("expected patch header, got %q", out)
+	}
+	if !strings.Contains(out, "**Base Commit:** `abc123def`") {
+		t.Errorf("expected base commit, got %q", out)
+	}
+	if !strings.Contains(out, "```diff\ndiff --git") {
+		t.Errorf("expected diff block, got %q", out)
+	}
+
+	patchNoBaseNoNewline := &jules.GitPatch{
+		UnidiffPatch: "+line without newline",
+	}
+	out2 := FormatPatch("sess-patch-2", patchNoBaseNoNewline)
+	if strings.Contains(out2, "**Base Commit:**") {
+		t.Errorf("expected no base commit line when empty, got %q", out2)
+	}
+	if !strings.Contains(out2, "```diff\n+line without newline\n```") {
+		t.Errorf("expected trailing newline before closing code block, got %q", out2)
+	}
+}
