@@ -144,10 +144,16 @@ func TestFormatSessionStatus(t *testing.T) {
 	updateTime := time.Date(2023, 10, 20, 15, 30, 0, 0, time.UTC)
 
 	session := &jules.Session{
-		ID:         "sess-123",
-		State:      "IN_PROGRESS",
-		URL:        "https://jules.google.com/session/sess-123",
-		Title:      "Fixing bugs",
+		ID:    "sess-123",
+		State: "IN_PROGRESS",
+		URL:   "https://jules.google.com/session/sess-123",
+		Title: "Fixing bugs",
+		SourceContext: &jules.SourceContext{
+			Source: "sources/github/owner/repo",
+			GithubRepoContext: &jules.GithubRepoContext{
+				StartingBranch: "master",
+			},
+		},
 		CreateTime: &createTime,
 		UpdateTime: &updateTime,
 		Prompt:     "Please fix all the bugs in the system. " + strings.Repeat("Very long prompt. ", 20), // Exceeds MaxPromptEchoLength
@@ -167,6 +173,12 @@ func TestFormatSessionStatus(t *testing.T) {
 	if !strings.Contains(out, "Title:** Fixing bugs") {
 		t.Errorf("expected title, got: %s", out)
 	}
+	if !strings.Contains(out, "Source:** `sources/github/owner/repo`") {
+		t.Errorf("expected Source, got: %s", out)
+	}
+	if !strings.Contains(out, "Starting Branch / Ref:** `master`") {
+		t.Errorf("expected Starting Branch / Ref, got: %s", out)
+	}
 	if !strings.Contains(out, "Created:** 2023-10-20T15:00:00Z") {
 		t.Errorf("expected create time, got: %s", out)
 	}
@@ -176,7 +188,10 @@ func TestFormatSessionStatus(t *testing.T) {
 	if !strings.Contains(out, "Prompt:** Please fix all") {
 		t.Errorf("expected prompt, got: %s", out)
 	}
-	if len(out) > 500 {
+	if strings.Contains(out, strings.Repeat("Very long prompt. ", 20)) {
+		t.Errorf("prompt was not truncated properly")
+	}
+	if len(out) > 650 {
 		t.Errorf("prompt was not truncated properly, total length %d", len(out))
 	}
 }

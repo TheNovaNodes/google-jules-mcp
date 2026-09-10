@@ -81,6 +81,14 @@ func FormatSessionStatus(session *jules.Session) string {
 	if session.Title != "" {
 		sb.WriteString(fmt.Sprintf("- **Title:** %s\n", session.Title))
 	}
+	if session.SourceContext != nil {
+		if session.SourceContext.Source != "" {
+			sb.WriteString(fmt.Sprintf("- **Source:** `%s`\n", session.SourceContext.Source))
+		}
+		if session.SourceContext.GithubRepoContext != nil && session.SourceContext.GithubRepoContext.StartingBranch != "" {
+			sb.WriteString(fmt.Sprintf("- **Starting Branch / Ref:** `%s`\n", session.SourceContext.GithubRepoContext.StartingBranch))
+		}
+	}
 	if session.CreateTime != nil {
 		sb.WriteString(fmt.Sprintf("- **Created:** %s\n", session.CreateTime.UTC().Format(time.RFC3339)))
 	}

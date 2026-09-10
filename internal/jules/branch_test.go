@@ -96,4 +96,44 @@ func TestNoHardcodedMainForMasterDefaultRepo(t *testing.T) {
 	if branch != "feature-x" {
 		t.Errorf("expected explicit branch 'feature-x', got %q", branch)
 	}
+
+	// Case 6: explicit commit SHA overrides source default (Issue #11)
+	branch, err = client.ResolveStartingBranch(ctx, "sources/github/owner/master-repo", "38cb99a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if branch != "38cb99a" {
+		t.Errorf("expected explicit commit SHA '38cb99a', got %q", branch)
+	}
+
+	// Case 7: un-normalized source name resolves correctly
+	branch, err = client.ResolveStartingBranch(ctx, "owner/master-repo", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if branch != "master" {
+		t.Errorf("expected branch 'master' for 'owner/master-repo', got %q", branch)
+	}
+}
+
+func TestNormalizeSourceName(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"sources/github/owner/repo", "sources/github/owner/repo"},
+		{"github/owner/repo", "sources/github/owner/repo"},
+		{"owner/repo", "sources/github/owner/repo"},
+		{"https://github.com/owner/repo", "sources/github/owner/repo"},
+		{"http://github.com/owner/repo.git", "sources/github/owner/repo"},
+		{"  owner/repo  ", "sources/github/owner/repo"},
+		{"custom-source", "custom-source"},
+	}
+
+	for _, tt := range tests {
+		got := NormalizeSourceName(tt.input)
+		if got != tt.expected {
+			t.Errorf("NormalizeSourceName(%q) = %q, expected %q", tt.input, got, tt.expected)
+		}
+	}
 }
