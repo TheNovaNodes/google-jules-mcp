@@ -1,6 +1,6 @@
 # JMC-TUNE-1: `google-jules-mcp` Server Tuning Specification
 
-- **Status:** DRAFT — ready for implementation by a separate coding agent (not authored by the implementer, per lab conveyor).
+- **Status:** IMPLEMENTED & VERIFIED (Rebuilt in Go via PR #29, hardened in PR #33-#38, released in v1.0.0).
 - **Commissioned by:** ЗавЛаб (@DoctorMES), 2026-08-25.
 - **Repo:** `TheNovaNodes/google-jules-mcp`.
 - **Quality bar (reference):** Google Stitch MCP (cloud, `streamable-http`) — treated by the lab as "works near-ideally".
