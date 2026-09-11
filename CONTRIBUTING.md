@@ -29,15 +29,18 @@ This section guides you through submitting an enhancement suggestion, including 
 
 ## Styleguides
 
-### Python Guidelines
-*   All code must be formatted correctly and pass any configured linting checks.
-*   Ensure all new features or bug fixes are covered by appropriate unit tests.
-*   Use type hints wherever possible to improve code readability and maintainability.
+### Go Guidelines
+* All code must be formatted correctly (`gofmt -s -w .`) and pass static analysis (`go vet ./...`).
+* Ensure all new features or bug fixes are covered by appropriate unit tests (`go test -v -race -cover ./...`).
+* Maintain zero-leakage credential hygiene: never commit secrets, tokens, or hardcoded API keys.
+* For stdio MCP protocol hygiene, never print to `os.Stdout`. Route all logs to `os.Stderr` via `log/slog`.
 
 ## Setting Up Your Development Environment
-1.  Fork the repository and clone your fork locally.
-2.  Create a virtual environment: `python -m venv .venv`
-3.  Activate the virtual environment: `source .venv/bin/activate` (Linux/macOS) or `.venv\Scripts\activate` (Windows)
-4.  Install dependencies: `pip install -e .`
+1. Fork the repository and clone your fork locally.
+2. Ensure you have Go 1.22+ installed (`go version`).
+3. Run tests with race detection: `make test` (or `go test -v -race -cover ./...`).
+4. Build the static binary: `make build` (outputs to `bin/google-jules-mcp`).
+5. Verify linting: `make lint` (or `go vet ./...`).
 
 Thank you for your contributions!
+

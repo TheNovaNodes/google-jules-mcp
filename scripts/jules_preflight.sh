@@ -16,11 +16,12 @@ REPO="${REPO%.git}"
 
 echo "🔍 [Phase 0 Pre-flight] Validating target repository: $REPO..."
 
-# Check GH_TOKEN availability
-if [[ -z "${GH_TOKEN:-}" ]] && [[ -f /root/projects/.credentials/TheNovaNodes.env ]]; then
-  # shellcheck disable=SC1091
-  source /root/projects/.credentials/TheNovaNodes.env
-  export GH_TOKEN="${GITHUB_PAT_NOVANODES:-}"
+# Verify gh CLI is authenticated or token is present
+if [[ -z "${GH_TOKEN:-}" ]] && [[ -z "${GITHUB_TOKEN:-}" ]]; then
+  if ! gh auth status &>/dev/null; then
+    echo "⚠️  WARNING: Neither GH_TOKEN/GITHUB_TOKEN is set nor is gh CLI authenticated."
+    echo "ℹ️  Run 'gh auth login' or export GH_TOKEN before running this script."
+  fi
 fi
 
 # 1. Check GitHub open PRs

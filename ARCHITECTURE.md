@@ -62,7 +62,7 @@ The codebase is engineered strictly in Go (Go 1.22+ compatible) with zero extern
 | Package | Path | Responsibility |
 | :--- | :--- | :--- |
 | `main` | `cmd/google-jules-mcp` | Application entry point. Loads `.env`, configures `slog` to `os.Stderr`, initializes dependencies, and binds to `mcpserver.ServeStdio`. |
-| `server` | `internal/server` | MCP tool handlers and lifecycle registry. Implements 7 canonical tools, argument validation, and contract tests against `README.md`. |
+| `server` | `internal/server` | MCP tool handlers and lifecycle registry. Implements 8 canonical tools, argument validation, and contract tests against `README.md`. |
 | `jules` | `internal/jules` | Resilient HTTP REST client for Google Jules API (`https://jules.googleapis.com/v1alpha`). Implements exponential backoff, retry jitter, typed data models, and branch resolution. |
 | `formatter` | `internal/formatter` | Context-window hygiene layer. Formats structured Markdown, truncates diffs ($\le 300$ chars) and prompt echoes ($\le 200$ chars), and prevents LLM context exhaustion. |
 
@@ -70,7 +70,7 @@ The codebase is engineered strictly in Go (Go 1.22+ compatible) with zero extern
 
 ## 3. Tool Lifecycle & Sequence Flow
 
-Google Jules tasks run asynchronously over extended durations (5–15 minutes). The server models execution through a complete 7-tool lifecycle:
+Google Jules tasks run asynchronously over extended durations (5–15 minutes). The server models execution through a complete 8-tool lifecycle (including direct patch extraction via `get_jules_patch`):
 
 ```mermaid
 sequenceDiagram
@@ -165,7 +165,7 @@ Network interactions with Google Cloud implement an exponential backoff strategy
 
 $$\Delta t = \min(t_{\text{max}}, t_{\text{base}} \times 2^{\text{attempt}}) \pm \text{jitter}$$
 
-- **Base Delay:** 500 ms
-- **Max Delay:** 8,000 ms
-- **Max Attempts:** 4
+- **Base Delay:** 1,000 ms
+- **Max Delay:** 10,000 ms
+- **Max Attempts:** 3
 - **Deterministic Testing Override:** `JULES_DISABLE_RETRY=true` disables retry loops to prevent artificial latency in test suites.

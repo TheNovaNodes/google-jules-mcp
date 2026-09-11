@@ -8,6 +8,10 @@ dist/
 *.dylib
 *.test
 *.out
+coverage.out
+coverage.html
+*.prof
+*.pprof
 
 # Environment & Secrets
 .env
