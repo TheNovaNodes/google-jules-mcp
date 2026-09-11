@@ -5,19 +5,24 @@ protocol: stdio
 primary_capability: Task delegation to Google Jules
 requires: JULES_API_KEY
 works_with: GitHub repositories, Google Jules
-last_verified: 2026-09-08
+last_verified: 2026-09-11
 ---
 
 # Google Jules MCP Server (Go)
 *Delegate complex, long-running coding tasks from local agents to the cloud-based Google Jules AI agent.*
 
-📚 **Documentation Suite:** [Architecture](ARCHITECTURE.md) • [Agent Directives](AGENTS.md) • [Contributing](CONTRIBUTING.md) • [Specification](docs/specs/jmc-tune-1-server-tuning.md) • [License](LICENSE)
+[![CI](https://github.com/TheNovaNodes/google-jules-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/TheNovaNodes/google-jules-mcp/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/badge/Go-1.22%20--%201.25-00ADD8?logo=go)](https://golang.org)
+[![Protocol: MCP](https://img.shields.io/badge/protocol-MCP%20JSON--RPC-green.svg)](https://modelcontextprotocol.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+📚 **Documentation Suite:** [Architecture](ARCHITECTURE.md) • [Agent Directives](AGENTS.md) • [Contributing](CONTRIBUTING.md) • [Security Policy](SECURITY.md) • [Specification](docs/specs/jmc-tune-1-server-tuning.md) • [License](LICENSE)
 
 ## Status and last verified date
 Status: Active  
 Language: Go (Golang)  
 Protocol: Model Context Protocol (stdio transport)  
-Last verified: 2026-09-08  
+Last verified: 2026-09-11  
 
 ## What it does / does not do
 **What it does:**
@@ -34,6 +39,13 @@ Last verified: 2026-09-08
 - Does not maintain unmonitored background watcher loops (one-shot actions only).
 
 ## Quick start
+
+### Option A: Install via `go install` (Recommended)
+```bash
+go install github.com/TheNovaNodes/google-jules-mcp/cmd/google-jules-mcp@latest
+```
+
+### Option B: Build from source
 ```bash
 # 1. Clone repository
 git clone https://github.com/TheNovaNodes/google-jules-mcp.git
@@ -45,7 +57,7 @@ cp .env.example .env
 
 # 3. Build binary
 make build
-# or: go build -o bin/google-jules-mcp ./cmd/google-jules-mcp
+# or: go build -ldflags="-s -w" -o bin/google-jules-mcp ./cmd/google-jules-mcp
 
 # 4. Run server (stdio)
 ./bin/google-jules-mcp
