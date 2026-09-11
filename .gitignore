@@ -27,3 +27,15 @@ coverage.html
 
 # Go vendor (if any)
 vendor/
+
+# Python Virtual Environments & Bytecode
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
