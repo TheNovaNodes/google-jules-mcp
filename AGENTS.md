@@ -58,7 +58,7 @@ make build
 
 ### 3. Architectural Invariants & Taboos (JMC-TUNE-1 Spec)
 - **R1 (Branch Resolution):** It is **FORBIDDEN** to hardcode `"main"` or any literal fallback branch in client payloads. Always use `client.ResolveStartingBranch()` which auto-detects `defaultBranch.displayName` from `GET /v1alpha/sources` or omits the field.
-- **R2 (Lifecycle Tools):** All 7 tools (`list_jules_sources`, `delegate_task_to_jules`, `check_jules_status`, `get_jules_session`, `list_jules_activities`, `send_jules_message`, `approve_jules_plan`) must remain registered and functional.
+- **R2 (Lifecycle Tools):** All 8 tools (`list_jules_sources`, `delegate_task_to_jules`, `check_jules_status`, `get_jules_session`, `list_jules_activities`, `send_jules_message`, `approve_jules_plan`, `get_jules_patch`) must remain registered and functional.
 - **R3 (Response Hygiene):** Never dump raw JSON dictionaries to calling agents. Always use `formatter.Format*` functions: prompt echoes $\le 200$ chars, unidiff patches $\le 300$ chars, activities capped at $\sim 4$ KB.
 - **R4 (Error Taxonomy):** Map upstream Google HTTP errors to human-actionable messages (400 pass-through, 401/403 invalid key, 404 not found, 429 backoff notice with attempts, 5xx unavailable with attempts).
 - **R5 (Guardrails):** No background auto-approvers or watchers. `approve_jules_plan` must log a mandatory WARNING (`RELEASING HUMAN-GATE`).
