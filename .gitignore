@@ -1,6 +1,7 @@
 # Binaries
 bin/
 dist/
+.deploy_rollback_capsule/
 *.exe
 *.exe~
 *.dll

@@ -12,6 +12,13 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 )
 
+var (
+	// Version is injected at build time via -ldflags
+	Version = "dev"
+	// CommitSHA is injected at build time via -ldflags
+	CommitSHA = "unknown"
+)
+
 // loadDotEnv parses a local .env file if present without external dependencies.
 func loadDotEnv(path string) {
 	file, err := os.Open(path)
@@ -39,6 +46,13 @@ func loadDotEnv(path string) {
 }
 
 func main() {
+	for _, arg := range os.Args[1:] {
+		if arg == "--version" || arg == "-v" || arg == "version" {
+			fmt.Printf("google-jules-mcp version %s (commit: %s)\n", Version, CommitSHA)
+			return
+		}
+	}
+
 	loadDotEnv(".env")
 
 	// FastMCP stdio server logs to stderr so stdin/stdout are preserved for MCP JSON-RPC
